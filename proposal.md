@@ -18,18 +18,15 @@ The purpose of *Shade My Run* is to assist runners in identifying routes with am
 **Project Design:** In order to...\*Jupyter notebooks, AWS, etc.\*
 
 **Milestones**
-1. Train model with lidar dataset
-2. Use model to score satalite data
-  * 2a. Use satalite data to measure distance straight line  
-  * 2b. Road Features - Get width and type of roads (Google api?, Street data) \*<28ft is standard non-highway two-lane\*
-3. Merge to make one Object
-  * 4a. Merging multiple road segments (Test routes)
-  * 4b. Gathering multiple paths from google maps for a route
-5. Combine 4a and 4b to get a score for multiple routes
-6. Basic interface that takes two text addresses and outputs text route options
-7. Display route on maps
-8. Input turn-around based on maps
-9. Input takes you halfway and automatically takes you back
+1. MVP: Train a model (using DAAC Lidar data) to detect tree cover from a satellite image
+2. Utilize the Google Earth Engine to pull dynamic satellite images for inference 
+3. Utilize Google Maps APIs to determine options for running routes, then use this data to create bounds for the inference
+4. Use turn by turn directions from the Google Maps API to break the route into segments that can individually be run against for tree coverage
+5. For each route, use the model to give it a "Shade coverage" percentage
+6. Implement a basic interface for inputing route start/end/waypoints (% shade will be shown next to the route options) 
+7. Display route in map form to the user
+8. Utilize "End" has a halfway point and return the user to their starting location (possibly via a different route) 
+
 
 **Resources**
 * Inspiration:[Mapping All Trees With Machine Learning](https://medium.com/descarteslabs-team/descartes-labs-urban-trees-tree-canopy-mapping-3b6c85c5c9cc)
