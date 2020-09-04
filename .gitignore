@@ -133,3 +133,7 @@ dmypy.json
 
 # data
 /data/*chm.tif
+
+# gdal cash
+gdalwmscache/
+

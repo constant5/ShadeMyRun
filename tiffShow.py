@@ -1,0 +1,5 @@
+tiff_files = glob('./data/*agb.tif')
+print(tiff_files)
+agb = gdal.Open(tiff_files[0]).ReadAsArray()
+img = plt.imshow(agb)
+plt.show()
