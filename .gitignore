@@ -137,3 +137,6 @@ dmypy.json
 # gdal cash
 gdalwmscache/
 
+.vscode/settings.json
+.vscode/launch.json
+.vscode/settings.json
