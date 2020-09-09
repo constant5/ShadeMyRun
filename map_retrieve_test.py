@@ -56,7 +56,16 @@ class TestRetrieveMap(unittest.TestCase):
         """
         # TODO: Write test to get multiple map images 
         # mr.save_map(f_name)
-        pass  
+        pass 
+
+    def test_save_json(self):
+        shape, _ = self.mr.load_shape(self.f_name)
+        json_file = self.mr.shape_to_json(shape)
+        dst_file = 'test.ds'
+        self.mr.save_json(json_file, dst_file)
+        self.assertTrue(os.path.exists(dst_file))
+        os.remove(dst_file)
+        
 
 if __name__ == "__main__":
     # test

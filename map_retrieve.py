@@ -1,19 +1,16 @@
 # retrieves map images from arcgis server given a zipped shape file
 
 # import packages
-import pandas 
-import numpy
-import gdal
-import ee
-import shapefile as shp
-from glob import glob
-from zipfile import ZipFile
-from pyproj import Proj, transform
+
+import json
 import os
 import subprocess
+from zipfile import ZipFile
 import pycrs
+import shapefile as shp
+from pyproj import Proj
 import logging
-import unittest
+
 
 class mapRetrieve():
     def __init__(self, in_folder='data/', out_folder='maps/'):
@@ -25,7 +22,9 @@ class mapRetrieve():
         if not os.path.isdir(self.out_folder):
             os.mkdir(self.out_folder)
         # source data hosted on arcgis server
-        self.src_file = 'http://server.arcgisonline.com/arcgis/rest/services/ESRI_Imagery_World_2D/MapServer?f=json&pretty=true'
+        self.src_file = 'http://server.arcgisonline.com/arcgis/'\
+                        'rest/services/ESRI_Imagery_World_2D/'\
+                        'MapServer?f=json&pretty=true'
 
     def load_shape(self, f_name: str):
         '''Get shape object and projection from a zip file. 
@@ -34,7 +33,7 @@ class mapRetrieve():
         ----------
         f_name : str
             the file name of a zip file containing an ESRI shape
-        
+
         Returns
         -------
         shp.Shape
@@ -44,19 +43,19 @@ class mapRetrieve():
         '''
         # open the zip file
         zipshape = ZipFile(f_name)
-        
+
         # read the shape file
         shape_name = f_name.split('\\')[1].split('.')[0]
         shape = shp.Reader(shp=zipshape.open(shape_name+'.shp'),
                            shx=zipshape.open(shape_name+'.shx'),
                            dbf=zipshape.open(shape_name+'.dbf'))
-        
+
         # read the projection file
         prj = str(zipshape.open(shape_name+'.prj').readlines())[3:-1]
-        
+
         # convert the prj format to proj4
         crs = pycrs.parse.from_esri_wkt(prj)
-        proj4 = crs.to_proj4() 
+        proj4 = crs.to_proj4()
         logging.info(f'\nProj4 string decoded:\n {proj4}')
         return shape, proj4
 
@@ -79,19 +78,18 @@ class mapRetrieve():
         '''
         # get bounding box
         utm_extents = shape.bbox
-        
+
         # define projection object
         myProj = Proj(proj4)
 
         # project UTM to geocoordinates
         llx, lly = myProj(utm_extents[0], utm_extents[1], inverse=True)
         upx, upy = myProj(utm_extents[2], utm_extents[3], inverse=True)
-        
+
         # note we have to do a conversion to get the bb in the right order for gdal
         extents = [llx, upy, upx, lly]
         logging.info(f'\nProjected extents:\n {extents}')
         return extents
-
 
     def get_map(self, extents, dst_file):
         '''Retrieve a map from given extents and save it.  
@@ -107,7 +105,7 @@ class mapRetrieve():
         Returns
         ----------
         int
-            the return code from the subprocees call
+            the return code from the subprocess call
 
         '''
 
@@ -122,19 +120,19 @@ class mapRetrieve():
 
         # print(translate_option)
 
-        # run command command as system process 
-        p_out = subprocess.run('gdal_translate ' + translate_option, 
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE,
-                                text=True)
-        
-        # display procees outputs
+        # run command command as system process
+        p_out = subprocess.run('gdal_translate ' + translate_option,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE,
+                               text=True)
+
+        # display process outputs
         stdout = p_out.stdout
-        logging.info(f'\nstdout:\n {stdout}') # stdout = normal output
-        stderr = p_out.stderr # stderr = error output
+        logging.info(f'\nstdout:\n {stdout}')  # stdout = normal output
+        stderr = p_out.stderr  # stderr = error output
         if stderr:
             logging.warning(f'\nsterr:\n {stderr}')
-        
+
         # simply return return code for test function later
         return p_out.returncode
 
@@ -150,7 +148,7 @@ class mapRetrieve():
         Returns
         ----------
         rc
-            the return code from the subprocees call
+            the return code from the subprocess call
 
         '''
 
@@ -160,10 +158,46 @@ class mapRetrieve():
         dst_file = f'{self.out_folder}{shape_name}.tif'
         rc = self.get_map(extents, dst_file)
         logging.info(f'\nThe process returned with code: {rc}')
-        return rc 
+        return rc
 
+    def shape_to_json(self, shapes, f_name='test.js'):
+        '''Convert a shape object to simplified bounding boxes and 
+           store in json structured dict   
 
+        Parameters
+        ----------
+        shape : shapefile.Shape
+            a shape object containing polygons 
 
+        Returns
+        ----------
+        dict
+            the bounding box details in dictionary form
 
+        '''
+        json_file = {'content': f_name, 'annotation': []}
+        for shape in shapes.shapeRecords():
+            minx, miny, maxx, maxy = shape.shape.bbox
+            features = {}
+            features['max_h'] = shape.record.max_h
+            features['x_min'] = minx
+            features['x_max'] = maxx
+            features['y_min'] = miny
+            features['y_max'] = maxy
+            json_file['annotation'].append(features)
+        return json_file
 
+    def save_json(self, json_file, dst_file):
+        '''Save a json structured dictionary to a file   
 
+        Parameters
+        ----------
+        json_file : dict
+            a dictionary to save to json 
+
+        dst_file : str
+            the filename destination to save the dictionary
+        '''
+        with open(dst_file, 'w') as output_file:
+            json.dump(json_file, output_file, indent=2)
+        return
