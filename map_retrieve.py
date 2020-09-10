@@ -13,7 +13,7 @@ import logging
 
 
 class mapRetrieve():
-    def __init__(self, in_folder='data/', out_folder='maps/'):
+    def __init__(self, in_folder='data/', out_folder='maps/', label_folder='labels/'):
         # folder of zipped shapes
         self.in_folder = in_folder
         # folder for output shapes
@@ -21,10 +21,19 @@ class mapRetrieve():
         # make output folder if none exists
         if not os.path.isdir(self.out_folder):
             os.mkdir(self.out_folder)
+        # folder for json labels
+        self.label_folder = label_folder
+        # make label folder if none exists
+        if not os.path.isdir(self.label_folder):
+            os.mkdir(self.label_folder)
+
+
         # source data hosted on arcgis server
         self.src_file = 'http://server.arcgisonline.com/arcgis/'\
                         'rest/services/ESRI_Imagery_World_2D/'\
                         'MapServer?f=json&pretty=true'
+        # a temp file to hold transformations
+        self.temp_map = 'maps/temp.gif' 
 
     def load_shape(self, f_name: str):
         '''Get shape object and projection from a zip file. 
@@ -134,9 +143,45 @@ class mapRetrieve():
             logging.warning(f'\nsterr:\n {stderr}')
 
         # simply return return code for test function later
-        return p_out.returncode
+        rc = p_out.returncode
+        logging.info(f'\nThe process returned with code: {rc}')
+        
+        return 
+    
+    def warp_map(self, src_file, dst_file):
 
-    def get_maps(self, zf):
+        # build option string for GDAL warp command
+        warp_option = f'-s_srs EPSG:4326 '\
+                      f'-t_srs EPSG:26910 '\
+                      f'-r near '\
+                      f'-of GTiff '\
+                      f'-overwrite '\
+                      f'{src_file} '\
+                      f'{dst_file}'
+
+        # run command command as system process
+        p_out = subprocess.run('gdalwarp ' + warp_option,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE,
+                               text=True)
+
+        # display process outputs
+        stdout = p_out.stdout
+        logging.info(f'\nstdout:\n {stdout}')  # stdout = normal output
+        stderr = p_out.stderr  # stderr = error output
+        if stderr:
+            logging.warning(f'\nsterr:\n {stderr}')
+
+        # delete temp_map
+        os.remove(src_file)
+
+        # simply return return code for test function later
+        rc = p_out.returncode
+        logging.info(f'\nThe process returned with code: {rc}')
+        
+        return 
+
+    def save_map(self, zf):
         '''From a given shape file, retrieve a hig-res map from a server
         source with same extents of the and save it locally to ./maps/   
 
@@ -156,9 +201,13 @@ class mapRetrieve():
         shape, proj4 = self.load_shape(zf)
         extents = self.get_bounds(shape, proj4)
         dst_file = f'{self.out_folder}{shape_name}.tif'
-        rc = self.get_map(extents, dst_file)
-        logging.info(f'\nThe process returned with code: {rc}')
-        return rc
+        self.get_map(extents, dst_file=self.temp_map)
+        rc = self.warp_map(src_file=self.temp_map, dst_file=dst_file)
+
+        json_file = self.shape_to_json(shape, dst_file)
+        self.save_json(json_file, self.label_folder+shape_name+'.js')
+        
+        return
 
     def shape_to_json(self, shapes, f_name='test.js'):
         '''Convert a shape object to simplified bounding boxes and 
@@ -180,6 +229,7 @@ class mapRetrieve():
             minx, miny, maxx, maxy = shape.shape.bbox
             features = {}
             features['max_h'] = shape.record.max_h
+
             features['x_min'] = minx
             features['x_max'] = maxx
             features['y_min'] = miny

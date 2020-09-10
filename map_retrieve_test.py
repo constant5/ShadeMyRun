@@ -50,9 +50,9 @@ class TestRetrieveMap(unittest.TestCase):
         self.assertTrue(os.path.exists(self.dst_file))
         os.remove(self.dst_file)
 
-    def test_get_maps(self):
+    def test_save_map(self):
         """
-        Testing get_maps method (not completed)
+        Testing save_map method (not completed)
         """
         # TODO: Write test to get multiple map images 
         # mr.save_map(f_name)
