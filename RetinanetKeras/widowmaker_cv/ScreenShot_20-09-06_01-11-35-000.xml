@@ -1,0 +1,38 @@
+<annotation>
+	<folder>Widow CV Data</folder>
+	<filename>ScreenShot_20-09-06_01-11-35-000.jpg</filename>
+	<path>E:\Widow CV Data\ScreenShot_20-09-06_01-11-35-000.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>1920</width>
+		<height>1080</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<name>widowmaker</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>1564</xmin>
+			<ymin>420</ymin>
+			<xmax>1631</xmax>
+			<ymax>525</ymax>
+		</bndbox>
+	</object>
+	<object>
+		<name>widowmaker</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>1784</xmin>
+			<ymin>429</ymin>
+			<xmax>1881</xmax>
+			<ymax>545</ymax>
+		</bndbox>
+	</object>
+</annotation>
