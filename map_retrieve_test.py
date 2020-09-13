@@ -10,7 +10,7 @@ class TestRetrieveMap(unittest.TestCase):
     @classmethod
     def setUpClass(self):
         self.mr = mapRetrieve(in_folder='data/', out_folder='maps/')
-        self.f_name = 'data\\Taliaferro2013_3992854N_12308761W.zip'
+        self.f_name = 'data/Taliaferro2013_3992854N_12308761W.zip'
         self.in_folder='data/'
         self.out_folder='maps/'
         self.dst_file = 'data/test_clip.tif'

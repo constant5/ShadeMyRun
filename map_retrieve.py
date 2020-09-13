@@ -10,7 +10,7 @@ import pycrs
 import shapefile as shp
 from pyproj import Proj
 import logging
-
+import rasterio
 
 class mapRetrieve():
     def __init__(self, in_folder='data/', out_folder='maps/', label_folder='labels/'):
@@ -52,16 +52,19 @@ class mapRetrieve():
         '''
         # open the zip file
         zipshape = ZipFile(f_name)
+        print(f_name)
 
         # read the shape file
-        shape_name = f_name.split('\\')[1].split('.')[0]
+        shape_name = f_name.split('/')[-1]
+        print(shape_name)
+        shape_name = shape_name.split('.')[0]
+        print(shape_name)
         shape = shp.Reader(shp=zipshape.open(shape_name+'.shp'),
                            shx=zipshape.open(shape_name+'.shx'),
                            dbf=zipshape.open(shape_name+'.dbf'))
 
         # read the projection file
         prj = str(zipshape.open(shape_name+'.prj').readlines())[3:-1]
-
         # convert the prj format to proj4
         crs = pycrs.parse.from_esri_wkt(prj)
         proj4 = crs.to_proj4()
@@ -119,18 +122,19 @@ class mapRetrieve():
         '''
 
         # build option string for GDAL translate command
-        translate_option = f'-projwin {" ".join(map(str, extents))} '\
-                           f'-ot Byte '\
-                           f'-of GTiff '\
-                           f'-co COMPRESS=NONE '\
-                           f'-co BIGTIFF=IF_NEEDED '\
-                           f'{self.src_file} '\
+        translate_option = f'-projwin {" ".join(map(str, extents))} ' \
+                           f'-ot Byte ' \
+                           f'-of GTiff ' \
+                           f'-co COMPRESS=NONE ' \
+                           f'-co BIGTIFF=IF_NEEDED ' \
+                           f'\'{self.src_file}\' ' \
                            f'{dst_file}'
 
-        # print(translate_option)
+        print(translate_option)
 
         # run command command as system process
         p_out = subprocess.run('gdal_translate ' + translate_option,
+                               shell=True,
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE,
                                text=True)
@@ -161,6 +165,7 @@ class mapRetrieve():
 
         # run command command as system process
         p_out = subprocess.run('gdalwarp ' + warp_option,
+                               shell=True,
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE,
                                text=True)
@@ -197,19 +202,21 @@ class mapRetrieve():
 
         '''
 
-        shape_name = zf.split('\\')[1].split('.')[0]
+        shape_name = zf.split('/')[-1].split('.')[0]
         shape, proj4 = self.load_shape(zf)
         extents = self.get_bounds(shape, proj4)
         dst_file = f'{self.out_folder}{shape_name}.tif'
         self.get_map(extents, dst_file=self.temp_map)
         rc = self.warp_map(src_file=self.temp_map, dst_file=dst_file)
 
-        json_file = self.shape_to_json(shape, dst_file)
+        src = rasterio.open(dst_file)
+
+        json_file = self.shape_to_json(shape, src.transform, dst_file)
         self.save_json(json_file, self.label_folder+shape_name+'.js')
         
         return
 
-    def shape_to_json(self, shapes, f_name='test.js'):
+    def shape_to_json(self, shapes, transform, f_name='test.js'):
         '''Convert a shape object to simplified bounding boxes and 
            store in json structured dict   
 
@@ -224,16 +231,29 @@ class mapRetrieve():
             the bounding box details in dictionary form
 
         '''
+        x_offset = 0
+        y_offset = 0
+        x_scale = 1
+        y_scale = 1
+        if not isinstance(transform, str):
+            x_offset = transform.c
+            y_offset = transform.f
+            x_scale = transform.a
+            y_scale = transform.e
+        else:
+            print("SOMETHING WENT WRONG WITH TRANSFORM OBJECT")
+            print(transform)
+            exit()
         json_file = {'content': f_name, 'annotation': []}
         for shape in shapes.shapeRecords():
             minx, miny, maxx, maxy = shape.shape.bbox
             features = {}
             features['max_h'] = shape.record.max_h
 
-            features['x_min'] = minx
-            features['x_max'] = maxx
-            features['y_min'] = miny
-            features['y_max'] = maxy
+            features['x_min'] = (minx - x_offset) * x_scale
+            features['x_max'] = (maxx - x_offset) * x_scale
+            features['y_min'] = (miny - y_offset) * y_scale
+            features['y_max'] = (maxy - y_offset) * y_scale
             json_file['annotation'].append(features)
         return json_file
 
