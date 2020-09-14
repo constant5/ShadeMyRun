@@ -11,9 +11,14 @@ import shapefile as shp
 from pyproj import Proj
 import logging
 import rasterio
+import re
+from lxml import html
+import requests
+import matplotlib.pyplot as plt
+
 
 class mapRetrieve():
-    def __init__(self, in_folder='data/', out_folder='maps/', label_folder='labels/'):
+    def __init__(self, in_folder='data', out_folder='maps', label_folder='labels'):
         # folder of zipped shapes
         self.in_folder = in_folder
         # folder for output shapes
@@ -33,7 +38,7 @@ class mapRetrieve():
                         'rest/services/ESRI_Imagery_World_2D/'\
                         'MapServer?f=json&pretty=true'
         # a temp file to hold transformations
-        self.temp_map = 'maps/temp.gif' 
+        self.temp_map = os.path.join(self.out_folder,'temp.tif') 
 
     def load_shape(self, f_name: str):
         '''Get shape object and projection from a zip file. 
@@ -52,24 +57,27 @@ class mapRetrieve():
         '''
         # open the zip file
         zipshape = ZipFile(f_name)
-        print(f_name)
-
-        # read the shape file
-        shape_name = f_name.split('/')[-1]
-        print(shape_name)
+        shape_name = re.split(r'/|\\+', f_name)[-1]
         shape_name = shape_name.split('.')[0]
-        print(shape_name)
+        # print(shape_name)
         shape = shp.Reader(shp=zipshape.open(shape_name+'.shp'),
                            shx=zipshape.open(shape_name+'.shx'),
                            dbf=zipshape.open(shape_name+'.dbf'))
 
         # read the projection file
         prj = str(zipshape.open(shape_name+'.prj').readlines())[3:-1]
+        url = 'https://spatialreference.org/ref/epsg/' + \
+                prj.split('"')[1].replace('_','-').replace('-19','').lower() + '/'
+        logging.info(f'\nGetting epsg from {url}')
+        page = requests.get(url)
+        tree = html.fromstring(page.content)
+        epsg = tree.xpath('//h1/text()')[0]
+        logging.info(f'Got {epsg}')
         # convert the prj format to proj4
         crs = pycrs.parse.from_esri_wkt(prj)
         proj4 = crs.to_proj4()
         logging.info(f'\nProj4 string decoded:\n {proj4}')
-        return shape, proj4
+        return shape, proj4, epsg
 
     def get_bounds(self, shape, proj4):
         '''Get the bound of a shape object and project them into geocoordinates. 
@@ -90,6 +98,7 @@ class mapRetrieve():
         '''
         # get bounding box
         utm_extents = shape.bbox
+        # print(utm_extents)
 
         # define projection object
         myProj = Proj(proj4)
@@ -101,7 +110,7 @@ class mapRetrieve():
         # note we have to do a conversion to get the bb in the right order for gdal
         extents = [llx, upy, upx, lly]
         logging.info(f'\nProjected extents:\n {extents}')
-        return extents
+        return extents, utm_extents
 
     def get_map(self, extents, dst_file):
         '''Retrieve a map from given extents and save it.  
@@ -127,10 +136,10 @@ class mapRetrieve():
                            f'-of GTiff ' \
                            f'-co COMPRESS=NONE ' \
                            f'-co BIGTIFF=IF_NEEDED ' \
-                           f'\'{self.src_file}\' ' \
+                           f'"{self.src_file}" ' \
                            f'{dst_file}'
 
-        print(translate_option)
+        # print(translate_option)
 
         # run command command as system process
         p_out = subprocess.run('gdal_translate ' + translate_option,
@@ -152,11 +161,11 @@ class mapRetrieve():
         
         return 
     
-    def warp_map(self, src_file, dst_file):
+    def warp_map(self, src_file, dst_file, epsg):
 
         # build option string for GDAL warp command
         warp_option = f'-s_srs EPSG:4326 '\
-                      f'-t_srs EPSG:26910 '\
+                      f'-t_srs {epsg} '\
                       f'-r near '\
                       f'-of GTiff '\
                       f'-overwrite '\
@@ -202,17 +211,18 @@ class mapRetrieve():
 
         '''
 
-        shape_name = zf.split('/')[-1].split('.')[0]
-        shape, proj4 = self.load_shape(zf)
-        extents = self.get_bounds(shape, proj4)
-        dst_file = f'{self.out_folder}{shape_name}.tif'
+        # shape_name = zf.split('/')[-1].split('.')[0]
+        shape_name = re.split(r'/|\\+', zf)[-1].split('.')[0]
+        shape, proj4, epsg = self.load_shape(zf)
+        extents, _ = self.get_bounds(shape, proj4)
+        dst_file = os.path.join(self.out_folder,f'{shape_name}.tif')
         self.get_map(extents, dst_file=self.temp_map)
-        rc = self.warp_map(src_file=self.temp_map, dst_file=dst_file)
+        rc = self.warp_map(src_file=self.temp_map, dst_file=dst_file, epsg=epsg)
 
         src = rasterio.open(dst_file)
 
         json_file = self.shape_to_json(shape, src.transform, dst_file)
-        self.save_json(json_file, self.label_folder+shape_name+'.js')
+        self.save_json(json_file, os.path.join(self.label_folder,shape_name+'.js'))
         
         return
 
@@ -270,4 +280,19 @@ class mapRetrieve():
         '''
         with open(dst_file, 'w') as output_file:
             json.dump(json_file, output_file, indent=2)
+        return
+
+    def tiff_print(self, tiff_file):
+        ''' display a print file
+        TODO: Not working without gdal import
+        
+        Parameters
+        ----------
+        tiff_file : str
+            a file location of a tiff file
+        '''
+         
+        # agb = gdal.Open(tiff_file).ReadAsArray()
+        # plt.imshow(agb)
+        # plt.show()
         return
