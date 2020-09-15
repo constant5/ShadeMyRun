@@ -140,3 +140,8 @@ gdalwmscache/
 .vscode/settings.json
 .vscode/launch.json
 .vscode/settings.json
+
+*.tif
+*W.js
+*.h5
+*.gitignore
