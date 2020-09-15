@@ -255,19 +255,23 @@ class mapRetrieve():
             print(transform)
             exit()
         json_file = {'content': f_name, 'annotation': []}
+        box_count = 0
         for shape in shapes.shapeRecords():
+            if box_count>500:
+                continue
             minx, miny, maxx, maxy = shape.shape.bbox
             features = {}
             #features['max_h'] = shape.record.max_h
             features['label'] = 'tree'
-            features['x_min'] = int((minx - x_offset) * x_scale)
-            features['x_max'] = int((maxx - x_offset) * x_scale)
+            features['x_min'] = int((minx - x_offset) / x_scale)
+            features['x_max'] = int((maxx - x_offset) / x_scale)
             #TODO see if this works or if you need to readjust as if top left is 0,0 of pixel coords
-            features['y_max'] = int((miny - y_offset) * y_scale)
-            features['y_min'] = int((maxy - y_offset) * y_scale)
+            features['y_max'] = int((miny - y_offset) / y_scale)
+            features['y_min'] = int((maxy - y_offset) / y_scale)
             if features['x_max'] > features['x_min'] and features['y_max'] > features['y_min']:
                 print("Adding annotation")
                 json_file['annotation'].append(features)
+                box_count = box_count + 1
             else:
                 print("Can't add annotation")
                 print(features)
