@@ -131,6 +131,13 @@ class mapRetrieve():
         '''
 
         # build option string for GDAL translate command
+        # translate_option = f'-projwin {" ".join(map(str, extents))} ' \
+        #                    f'-ot Byte ' \
+        #                    f'-of PNG ' \
+        #                    f'-co ZLEVEL=1 ' \
+        #                    f'"{self.src_file}" ' \
+        #                    f'{dst_file}'
+        # build option string for GDAL translate command
         translate_option = f'-projwin {" ".join(map(str, extents))} ' \
                            f'-ot Byte ' \
                            f'-of GTiff ' \
@@ -139,7 +146,7 @@ class mapRetrieve():
                            f'"{self.src_file}" ' \
                            f'{dst_file}'
 
-        # print(translate_option)
+        print(translate_option)
 
         # run command command as system process
         p_out = subprocess.run('gdal_translate ' + translate_option,
@@ -162,6 +169,18 @@ class mapRetrieve():
         return 
     
     def warp_map(self, src_file, dst_file, epsg):
+        '''warps a tiff map in EPSPG:4326 to epsg specified. note that
+           that the src_file is deleted before return.  
+
+        Parameters
+        ----------
+        src_file : str
+            the file location of the source map
+        dst_file : str
+            the file location of the destination map
+        epsg : str
+            the epsg code of the desired re-projection (ex. 'EPSG:2610')
+        '''
 
         # build option string for GDAL warp command
         warp_option = f'-s_srs EPSG:4326 '\
@@ -174,6 +193,49 @@ class mapRetrieve():
 
         # run command command as system process
         p_out = subprocess.run('gdalwarp ' + warp_option,
+                               shell=True,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE,
+                               text=True)
+
+        # display process outputs
+        stdout = p_out.stdout
+        logging.info(f'\nstdout:\n {stdout}')  # stdout = normal output
+        stderr = p_out.stderr  # stderr = error output
+        if stderr:
+            logging.warning(f'\nsterr:\n {stderr}')
+
+        # delete temp_map
+        os.remove(src_file)
+
+        # simply return return code for test function later
+        rc = p_out.returncode
+        logging.info(f'\nThe process returned with code: {rc}')
+        
+        return
+    
+    def png_map(self, src_file, dst_file):
+        '''convert a tiff map to a png map. note that that src_file is
+           deleted before return.  
+
+        Parameters
+        ----------
+        src_file : str
+            the file location of the source map
+        dst_file : str
+            the file location of the destination map
+        '''
+
+        # build option string for GDAL translate command
+        translate_option = f'-of PNG ' \
+                           f'-co ZLEVEL=1 ' \
+                           f'"{src_file}" ' \
+                           f'{dst_file}'
+
+        print(translate_option)
+
+        # run command command as system process
+        p_out = subprocess.run('gdal_translate ' + translate_option,
                                shell=True,
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE,
@@ -215,11 +277,12 @@ class mapRetrieve():
         shape_name = re.split(r'/|\\+', zf)[-1].split('.')[0]
         shape, proj4, epsg = self.load_shape(zf)
         extents, _ = self.get_bounds(shape, proj4)
-        dst_file = os.path.join(self.out_folder,f'{shape_name}.tif')
+        dst_file = os.path.join(self.out_folder,f'{shape_name}')
         self.get_map(extents, dst_file=self.temp_map)
-        rc = self.warp_map(src_file=self.temp_map, dst_file=dst_file, epsg=epsg)
+        self.warp_map(src_file=self.temp_map, dst_file=dst_file+'temp.tif', epsg=epsg)
+        self.png_map(src_file=dst_file+'temp.tif', dst_file=dst_file+'.png')
 
-        src = rasterio.open(dst_file)
+        src = rasterio.open(dst_file+'.png')
 
         json_file = self.shape_to_json(shape, src.transform, dst_file)
         self.save_json(json_file, os.path.join(self.label_folder,shape_name+'.js'))
@@ -256,14 +319,14 @@ class mapRetrieve():
             exit()
         json_file = {'content': f_name, 'annotation': []}
         for shape in shapes.shapeRecords():
-            minx, miny, maxx, maxy = shape.shape.bbox
+            maxx, maxy, minx, miny = shape.shape.bbox
             features = {}
             features['max_h'] = shape.record.max_h
 
-            features['x_min'] = (minx - x_offset) * x_scale
-            features['x_max'] = (maxx - x_offset) * x_scale
-            features['y_min'] = (miny - y_offset) * y_scale
-            features['y_max'] = (maxy - y_offset) * y_scale
+            features['x_min'] = (minx - x_offset) / x_scale
+            features['x_max'] = (maxx - x_offset) / x_scale
+            features['y_min'] = (miny - y_offset) / y_scale
+            features['y_max'] = (maxy - y_offset) / y_scale
             json_file['annotation'].append(features)
         return json_file
 
