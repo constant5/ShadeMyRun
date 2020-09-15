@@ -321,6 +321,7 @@ class mapRetrieve():
         for shape in shapes.shapeRecords():
             maxx, maxy, minx, miny = shape.shape.bbox
             features = {}
+<<<<<<< HEAD
             features['max_h'] = shape.record.max_h
 
             features['x_min'] = (minx - x_offset) / x_scale
@@ -328,6 +329,21 @@ class mapRetrieve():
             features['y_min'] = (miny - y_offset) / y_scale
             features['y_max'] = (maxy - y_offset) / y_scale
             json_file['annotation'].append(features)
+=======
+            #features['max_h'] = shape.record.max_h
+            features['label'] = 'tree'
+            features['x_min'] = int((minx - x_offset) * x_scale)
+            features['x_max'] = int((maxx - x_offset) * x_scale)
+            #TODO see if this works or if you need to readjust as if top left is 0,0 of pixel coords
+            features['y_max'] = int((miny - y_offset) * y_scale)
+            features['y_min'] = int((maxy - y_offset) * y_scale)
+            if features['x_max'] > features['x_min'] and features['y_max'] > features['y_min']:
+                print("Adding annotation")
+                json_file['annotation'].append(features)
+            else:
+                print("Can't add annotation")
+                print(features)
+>>>>>>> d26c95e395388338b5289cdaddd6f838e0d7f26a
         return json_file
 
     def save_json(self, json_file, dst_file):
@@ -342,7 +358,8 @@ class mapRetrieve():
             the filename destination to save the dictionary
         '''
         with open(dst_file, 'w') as output_file:
-            json.dump(json_file, output_file, indent=2)
+            json.dump(json_file, output_file)
+            #json.dump(json_file, output_file, indent=2)
         return
 
     def tiff_print(self, tiff_file):
