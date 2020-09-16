@@ -15,10 +15,13 @@ import re
 from lxml import html
 import requests
 import matplotlib.pyplot as plt
+from PIL import Image
+import numpy as np
 
 
 class mapRetrieve():
-    def __init__(self, in_folder='data', out_folder='maps', label_folder='labels'):
+    def __init__(self, in_folder='data',
+                 out_folder='maps', label_folder='labels', log=False):
         # folder of zipped shapes
         self.in_folder = in_folder
         # folder for output shapes
@@ -38,7 +41,17 @@ class mapRetrieve():
                         'rest/services/ESRI_Imagery_World_2D/'\
                         'MapServer?f=json&pretty=true'
         # a temp file to hold transformations
-        self.temp_map = os.path.join(self.out_folder,'temp.tif') 
+        self.temp_map = os.path.join(self.out_folder,'temp.tif')
+
+        # enable or disable logging
+        logger = logging.getLogger()
+        if log:
+            # turn on logging to get output from methods
+            logger.setLevel(logging.INFO) 
+        else:
+            logger.setLevel(logging.WARNING)
+
+
 
     def load_shape(self, f_name: str):
         '''Get shape object and projection from a zip file. 
@@ -146,7 +159,7 @@ class mapRetrieve():
                            f'"{self.src_file}" ' \
                            f'{dst_file}'
 
-        print(translate_option)
+        # print(translate_option)
 
         # run command command as system process
         p_out = subprocess.run('gdal_translate ' + translate_option,
@@ -232,7 +245,7 @@ class mapRetrieve():
                            f'"{src_file}" ' \
                            f'{dst_file}'
 
-        print(translate_option)
+        # print(translate_option)
 
         # run command command as system process
         p_out = subprocess.run('gdal_translate ' + translate_option,
@@ -257,7 +270,7 @@ class mapRetrieve():
         
         return 
 
-    def save_map(self, zf):
+    def save_map(self, zf, validate=False):
         '''From a given shape file, retrieve a hig-res map from a server
         source with same extents of the and save it locally to ./maps/   
 
@@ -285,8 +298,12 @@ class mapRetrieve():
         src = rasterio.open(dst_file+'.png')
 
         json_file = self.shape_to_json(shape, src.transform, dst_file)
+
         self.save_json(json_file, os.path.join(self.label_folder,shape_name+'.js'))
-        
+
+        if validate:
+            self.png_print(png_dst_file=dst_file+'.png', 
+                           label_file=os.path.join(self.label_folder,shape_name+'.js'))
         return
 
     def shape_to_json(self, shapes, transform, f_name='test.js'):
@@ -321,29 +338,18 @@ class mapRetrieve():
         for shape in shapes.shapeRecords():
             maxx, maxy, minx, miny = shape.shape.bbox
             features = {}
-<<<<<<< HEAD
-            features['max_h'] = shape.record.max_h
+            height = shape.record.max_h
+            # only get bboxses for trees greater than 30 ft(?)
+            if height > 30: 
+                features['max_h'] = height
 
-            features['x_min'] = (minx - x_offset) / x_scale
-            features['x_max'] = (maxx - x_offset) / x_scale
-            features['y_min'] = (miny - y_offset) / y_scale
-            features['y_max'] = (maxy - y_offset) / y_scale
-            json_file['annotation'].append(features)
-=======
-            #features['max_h'] = shape.record.max_h
-            features['label'] = 'tree'
-            features['x_min'] = int((minx - x_offset) * x_scale)
-            features['x_max'] = int((maxx - x_offset) * x_scale)
-            #TODO see if this works or if you need to readjust as if top left is 0,0 of pixel coords
-            features['y_max'] = int((miny - y_offset) * y_scale)
-            features['y_min'] = int((maxy - y_offset) * y_scale)
-            if features['x_max'] > features['x_min'] and features['y_max'] > features['y_min']:
-                print("Adding annotation")
+                features['x_min'] = (minx - x_offset) / x_scale
+                features['x_max'] = (maxx - x_offset) / x_scale
+                features['y_min'] = (miny - y_offset) / y_scale
+                features['y_max'] = (maxy - y_offset) / y_scale
+
+                
                 json_file['annotation'].append(features)
-            else:
-                print("Can't add annotation")
-                print(features)
->>>>>>> d26c95e395388338b5289cdaddd6f838e0d7f26a
         return json_file
 
     def save_json(self, json_file, dst_file):
@@ -362,17 +368,46 @@ class mapRetrieve():
             #json.dump(json_file, output_file, indent=2)
         return
 
-    def tiff_print(self, tiff_file):
-        ''' display a print file
-        TODO: Not working without gdal import
+    def png_print(self, png_dst_file,label_file):
+        ''' display a png file with labels
         
         Parameters
         ----------
-        tiff_file : str
-            a file location of a tiff file
+        png_dst_file : str
+            a file location of a png file
+        label_file : str
+            a file location of the associated label file
         '''
+        with open(label_file) as json_file:
+            labels = json.load(json_file)
+
+        # a little helper func
+        def get_png_size(f_name):
+            with Image.open(f_name) as img:
+                im = np.array(img)
+                logging.info(f'\nimage shape: {im.shape}')
+            return im.shape
+
+
+        def plot_labels(labels):
+            for item in labels['annotation']:
+                h = item['max_h']
+                s_minx = item['x_min']
+                s_maxx = item['x_max']
+                s_miny = item['y_min']
+                s_maxy = item['y_max']
+                x = [s_minx, s_minx, s_maxx, s_maxx, s_minx]
+                y = [s_miny, s_maxy, s_maxy, s_miny, s_miny]
+                plt.plot(x,y, linewidth=5)
+
+        def plot_png(png_dst_file):
+            png_size = get_png_size(png_dst_file)[:2]
+            fig = plt.figure(figsize=(png_size[1]/20,png_size[0]/20))
+            img = Image.open(png_dst_file)
+            plt.imshow(img)
+
+        plot_png(png_dst_file)
+        plot_labels(labels)
+        plt.show()
          
-        # agb = gdal.Open(tiff_file).ReadAsArray()
-        # plt.imshow(agb)
-        # plt.show()
         return

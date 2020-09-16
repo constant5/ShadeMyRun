@@ -140,3 +140,6 @@ gdalwmscache/
 .vscode/settings.json
 .vscode/launch.json
 .vscode/settings.json
+data/sample_set/*
+maps/*
+labels/*
