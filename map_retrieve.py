@@ -17,6 +17,7 @@ import requests
 import matplotlib.pyplot as plt
 from PIL import Image
 import numpy as np
+from pascal_voc_writer import Writer
 
 
 class mapRetrieve():
@@ -296,10 +297,12 @@ class mapRetrieve():
         self.png_map(src_file=dst_file+'temp.tif', dst_file=dst_file+'.png')
 
         src = rasterio.open(dst_file+'.png')
+        label_file = os.path.join(self.label_folder,f'{shape_name}.xml')
+        # json_file = self.shape_to_json(shape, src.transform, dst_file)
+        self.shape_to_voc(dst_file+'.png', shape, src.transform, label_file)
 
-        json_file = self.shape_to_json(shape, src.transform, dst_file)
-
-        self.save_json(json_file, os.path.join(self.label_folder,shape_name+'.js'))
+        # self.save_json(json_file, os.path.join(self.label_folder,shape_name+'.js'))
+        
 
         if validate:
             self.png_print(png_dst_file=dst_file+'.png', 
@@ -368,6 +371,12 @@ class mapRetrieve():
             #json.dump(json_file, output_file, indent=2)
         return
 
+    def get_png_size(self, f_name):
+        with Image.open(f_name) as img:
+            im = np.array(img)
+            logging.info(f'\nimage shape: {im.shape}')
+        return im.shape
+
     def png_print(self, png_dst_file,label_file):
         ''' display a png file with labels
         
@@ -380,13 +389,6 @@ class mapRetrieve():
         '''
         with open(label_file) as json_file:
             labels = json.load(json_file)
-
-        # a little helper func
-        def get_png_size(f_name):
-            with Image.open(f_name) as img:
-                im = np.array(img)
-                logging.info(f'\nimage shape: {im.shape}')
-            return im.shape
 
 
         def plot_labels(labels):
@@ -401,7 +403,7 @@ class mapRetrieve():
                 plt.plot(x,y, linewidth=5)
 
         def plot_png(png_dst_file):
-            png_size = get_png_size(png_dst_file)[:2]
+            png_size = self.get_png_size(png_dst_file)[:2]
             fig = plt.figure(figsize=(png_size[1]/20,png_size[0]/20))
             img = Image.open(png_dst_file)
             plt.imshow(img)
@@ -411,3 +413,49 @@ class mapRetrieve():
         plt.show()
          
         return
+
+
+    def shape_to_voc(self, png_dst_file, shapes, transform, f_name='test.js'):
+        '''
+
+        Parameters
+        ----------
+        shape : shapefile.Shape
+            a shape object containing polygons 
+
+        '''
+        img_size = self.get_png_size(png_dst_file)
+        # Writer(path, width, height)
+        writer = Writer(png_dst_file, img_size[1], img_size[0])
+
+        x_offset = 0
+        y_offset = 0
+        x_scale = 1
+        y_scale = 1
+        if not isinstance(transform, str):
+            x_offset = transform.c
+            y_offset = transform.f
+            x_scale = transform.a
+            y_scale = transform.e
+        else:
+            print("SOMETHING WENT WRONG WITH TRANSFORM OBJECT")
+            print(transform)
+            exit()
+        json_file = {'content': f_name, 'annotation': []}
+        for shape in shapes.shapeRecords():
+            maxx, maxy, minx, miny = shape.shape.bbox
+            height = shape.record.max_h
+            # only get bboxses for trees greater than 30 ft(?)
+            if height > 30:
+                x_min = (minx - x_offset) / x_scale
+                x_max = (maxx - x_offset) / x_scale
+                y_min = (miny - y_offset) / y_scale
+                y_max = (maxy - y_offset) / y_scale
+                # ::addObject(name, xmin, ymin, xmax, ymax)
+                writer.addObject('tree', x_max, y_min, x_min, y_max)
+
+            # ::save(path)
+        writer.save(f_name)
+        return
+
+
