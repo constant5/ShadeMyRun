@@ -7,7 +7,7 @@ class Coordinates:
         # Initial info
         self.origin = origin.replace(' ' ,'+')
         self.destination = destination.replace(' ','+')
-        self.key = "AIzaSyAYmtc_i_AQIOr-zeMLhFlxBSE7U9OhZaM"
+        self.key = "API_Key"
         self.directions_url = "https://maps.googleapis.com/maps/api/directions/json?"
         self.map_url  = "https://maps.googleapis.com/maps/api/staticmap?"
         self.gps_coord = []
@@ -37,12 +37,12 @@ class Coordinates:
         maptype = 'satellite'
         
         # marker_style gets formatted like marker coordinate
-        parameters = 'size={}&scale={}&format={}&maptype={}&path=color:0xff0000ff|weight:2|{}&key={}'.format(size, scale, image_format, maptype, coordinates_path_list, self.key)
+        parameters = 'size={}&scale={}&format={}&maptype={}&path=color:0xffffff50|weight:5|{}&key={}'.format(size, scale, image_format, maptype, coordinates_path_list, self.key)
         
         request_2 = self.map_url + parameters
         
         # Open Image
-        print(request_2)
+        # print(request_2)
         
         webbrowser.open(request_2, new=0, autoraise=True)
         
