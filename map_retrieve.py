@@ -343,7 +343,7 @@ class mapRetrieve():
             features = {}
             height = shape.record.max_h
             # only get bboxses for trees greater than 30 ft(?)
-            if height > 30: 
+            if height and height > 30:
                 features['max_h'] = height
 
                 features['x_min'] = (minx - x_offset) / x_scale
@@ -425,8 +425,10 @@ class mapRetrieve():
 
         '''
         img_size = self.get_png_size(png_dst_file)
+        img_width = img_size[1]
+        img_height = img_size[0]
         # Writer(path, width, height)
-        writer = Writer(png_dst_file, img_size[1], img_size[0])
+        writer = Writer(png_dst_file, img_width, img_height)
 
         x_offset = 0
         y_offset = 0
@@ -443,16 +445,43 @@ class mapRetrieve():
             exit()
         json_file = {'content': f_name, 'annotation': []}
         for shape in shapes.shapeRecords():
-            maxx, maxy, minx, miny = shape.shape.bbox
+            minx, miny, maxx, maxy = shape.shape.bbox
             height = shape.record.max_h
-            # only get bboxses for trees greater than 30 ft(?)
-            if height > 30:
-                x_min = (minx - x_offset) / x_scale
-                x_max = (maxx - x_offset) / x_scale
-                y_min = (miny - y_offset) / y_scale
-                y_max = (maxy - y_offset) / y_scale
+            # only get bboxses for trees greater than 30 ft(?) -> Trying 10ft
+            # also added crop to the data points so that we don't get those on the black boarder
+            print(transform)
+            print("X offset")
+            print(x_offset)
+            print("y offset")
+            print(y_offset)
+            print("X scale")
+            print(x_scale)
+            print("Y scale")
+            print(y_scale)
+            print("Shape bounds")
+            print("Raw X")
+            print(minx)
+            print(maxx)
+            print("Raw Y")
+            print(miny)
+            print(maxy)
+            if height and height > 10:
+                x_min = int((minx - x_offset) / x_scale)
+                x_max = int((maxx - x_offset) / x_scale)
+                y_min = int((miny - y_offset) / y_scale)
+                y_max = int((maxy - y_offset) / y_scale)
                 # ::addObject(name, xmin, ymin, xmax, ymax)
-                writer.addObject('tree', x_max, y_min, x_min, y_max)
+                print("Image Data:")
+                print(img_height)
+                print(img_width)
+                print("X data")
+                print(x_min)
+                print(x_max)
+                print("Y data")
+                print(y_min)
+                print(y_max)
+                if x_min > 50 and y_min > 50 and x_max < (img_width - 50) and y_max < (img_height - 50):
+                    writer.addObject('tree', x_max, y_min, x_min, y_max)
 
             # ::save(path)
         writer.save(f_name)
