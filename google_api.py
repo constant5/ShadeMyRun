@@ -7,12 +7,11 @@ class Coordinates:
         # Initial info
         self.origin = origin.replace(' ' ,'+')
         self.destination = destination.replace(' ','+')
-        self.key = "API KEY"
+        self.key = "API key"
         self.directions_url = "https://maps.googleapis.com/maps/api/directions/json?"
         self.map_url  = "https://maps.googleapis.com/maps/api/staticmap?"
         self.gps_coord_pairs = []
     
-    def return_coordinates(self):
         # Directions API
         coordinates = 'origin={}&destination={}&mode=walking&key={}'.format(self.origin, self.destination, self.key)
         request_1 = self.directions_url + coordinates
@@ -30,8 +29,14 @@ class Coordinates:
         for dictionary in self.gps_coord:
             pair = list(dictionary.values())
             self.gps_coord_pairs.append(pair)
-                
-        return self.gps_coord_pairs
+                    
+    def split_coord(self):
+        lat_list = [i[0] for i in self.gps_coord_pairs]  
+        lng_list = [i[1] for i in self.gps_coord_pairs] 
+           
+        print("final lists", str(lat_list), "\n", str(lng_list))  
+    
+    
                 
     
     def return_image(self):
