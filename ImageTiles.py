@@ -104,7 +104,8 @@ class voc_tiler:
 
 
 if __name__=='__main__':
-    infile="<something.jpg>"
+    #TODO: Loop through xml files
+    infile="<something.xml>"
     outfolder = "<some output folder> "
     height=512
     width=512
