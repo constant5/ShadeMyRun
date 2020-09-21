@@ -435,17 +435,17 @@ class mapRetrieve():
         x_scale = 1
         y_scale = 1
         if not isinstance(transform, str):
-            x_offset = transform.c
-            y_offset = transform.f
             x_scale = transform.a
             y_scale = transform.e
+            x_offset = transform.c
+            y_offset = transform.f
         else:
             print("SOMETHING WENT WRONG WITH TRANSFORM OBJECT")
             print(transform)
             exit()
         json_file = {'content': f_name, 'annotation': []}
         for shape in shapes.shapeRecords():
-            minx, miny, maxx, maxy = shape.shape.bbox
+            minx, maxy, maxx, miny = shape.shape.bbox
             height = shape.record.max_h
             # only get bboxses for trees greater than 30 ft(?) -> Trying 10ft
             # also added crop to the data points so that we don't get those on the black boarder
